@@ -15,7 +15,9 @@ export function CharacterListPage({
   tagOptions,
   selectedTags,
   onTagsChange,
+  onAuthorShortcut,
   onCharacterOpen,
+  onTagShortcut,
   searchTerm,
   onSearchChange,
 }) {
@@ -71,7 +73,9 @@ export function CharacterListPage({
                 key={character.id}
                 character={character}
                 detailPath={getCharacterDetailPath(character.id, character.versionId)}
+                onAuthorFilter={onAuthorShortcut}
                 onOpen={onCharacterOpen}
+                onTagFilter={onTagShortcut}
               />
             ))}
           </div>

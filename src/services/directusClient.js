@@ -106,6 +106,56 @@ export async function fetchCharacterCards() {
   }))
 }
 
+export async function fetchDatabaseTemplates() {
+  return fetchFileBackedCollection('database_templates', 'template')
+}
+
+export async function fetchWorldBooks() {
+  return fetchFileBackedCollection('world_books', 'world_book')
+}
+
+async function fetchFileBackedCollection(collectionName, fileField) {
+  const items = await directusClient.request(
+    readItems(collectionName, {
+      fields: [
+        'id',
+        'name',
+        `${fileField}.id`,
+        `${fileField}.filename_download`,
+        `${fileField}.title`,
+        'version',
+        'url',
+        'author.id',
+        'author.name',
+        'previous_version.id',
+        'previous_version.version',
+      ],
+      limit: -1,
+      sort: ['name'],
+    }),
+  )
+
+  return Promise.all(items.map(async (item) => {
+    const fileId = getRelationId(item[fileField])
+
+    return {
+      id: item.id,
+      name: item.name,
+      fileId,
+      fileName: getFileName(item[fileField]),
+      fileContent: fileId
+        ? await fetchAssetText(fileId)
+        : '',
+      version: item.version,
+      sourceUrl: item.url,
+      author: getAuthorName(item.author),
+      authorId: getRelationId(item.author),
+      previousVersionId: getRelationId(item.previous_version),
+      previousVersion: getPreviousVersionName(item.previous_version),
+    }
+  }))
+}
+
 function getRelationKey(relationId) {
   return relationId == null ? null : String(relationId)
 }
@@ -132,6 +182,14 @@ function getAuthorName(author) {
   }
 
   return null
+}
+
+function getPreviousVersionName(previousVersion) {
+  if (!previousVersion || typeof previousVersion !== 'object') {
+    return null
+  }
+
+  return previousVersion.version ?? null
 }
 
 function normalizeVersion(version) {
@@ -177,6 +235,19 @@ export async function fetchAssetBlob(assetId) {
   }
 
   return response.blob()
+}
+
+async function fetchAssetText(assetId) {
+  const blob = await fetchAssetBlob(assetId)
+  return blob.text()
+}
+
+function getFileName(file) {
+  if (!file || typeof file !== 'object') {
+    return null
+  }
+
+  return file.filename_download ?? file.title ?? null
 }
 
 export function releaseCharacterCardImages(characters) {

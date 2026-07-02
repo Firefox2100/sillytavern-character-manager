@@ -6,7 +6,9 @@ import { extractCardExcerptFromPng } from '../services/sillyTavernCard.js'
 export function CharacterDetailPage({
   character,
   selectedVersionId,
+  onAuthorFilter,
   onBack,
+  onTagFilter,
   onVersionChange,
 }) {
   const { t } = useI18n()
@@ -152,7 +154,19 @@ export function CharacterDetailPage({
           <div>
             <p className="eyebrow">{t('characterDetails')}</p>
             <h2 id="detail-title">{character.name}</h2>
-            <p className="detail-author">{t('byAuthor', { author })}</p>
+            <p className="detail-author">
+              {character.authorId ? (
+                <button
+                  className="inline-filter-button"
+                  type="button"
+                  onClick={() => onAuthorFilter(character)}
+                >
+                  {t('byAuthor', { author })}
+                </button>
+              ) : (
+                t('byAuthor', { author })
+              )}
+            </p>
           </div>
 
           <label className="detail-field">
@@ -174,7 +188,11 @@ export function CharacterDetailPage({
             {selectedVersion.tags.length > 0 ? (
               <ul className="tag-list" aria-label={t('tagsLabel', { name: character.name })}>
                 {selectedVersion.tags.map((tag) => (
-                  <li key={tag}>{tag}</li>
+                  <li key={tag}>
+                    <button type="button" onClick={() => onTagFilter(tag)}>
+                      {tag}
+                    </button>
+                  </li>
                 ))}
               </ul>
             ) : (

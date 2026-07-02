@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { CharacterDetailPage } from './components/CharacterDetailPage.jsx'
 import { CharacterListPage } from './components/CharacterListPage.jsx'
+import { DatabaseTemplateListPage } from './components/DatabaseTemplateListPage.jsx'
 import { LanguageSwitcher } from './components/LanguageSwitcher.jsx'
 import { LoginPage } from './components/LoginPage.jsx'
 import { useI18n } from './i18n/i18nContext.js'
 import {
   fetchCharacterCards,
+  fetchDatabaseTemplates,
+  fetchWorldBooks,
   hasDirectusSession,
   loginToDirectus,
   logoutFromDirectus,
@@ -16,6 +19,32 @@ import {
 const pages = {
   characters: 'characters',
   detail: 'detail',
+  templates: 'templates',
+  worldBooks: 'worldBooks',
+}
+
+const databaseTemplateLabels = {
+  tab: 'templatesTab',
+  pageTitle: 'templatesPageTitle',
+  count: 'templateCount',
+  loadingTitle: 'loadingTemplatesTitle',
+  loadingMessage: 'loadingTemplatesMessage',
+  emptyTitle: 'noTemplatesTitle',
+  emptyMessage: 'noTemplatesMessage',
+  file: 'templateFile',
+  noPreview: 'noTemplatePreview',
+}
+
+const worldBookLabels = {
+  tab: 'worldBooksTab',
+  pageTitle: 'worldBooksPageTitle',
+  count: 'worldBookCount',
+  loadingTitle: 'loadingWorldBooksTitle',
+  loadingMessage: 'loadingWorldBooksMessage',
+  emptyTitle: 'noWorldBooksTitle',
+  emptyMessage: 'noWorldBooksMessage',
+  file: 'worldBookFile',
+  noPreview: 'noWorldBookPreview',
 }
 
 function App() {
@@ -23,26 +52,36 @@ function App() {
   const [route, setRoute] = useState(getRouteFromLocation)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedAuthorId, setSelectedAuthorId] = useState('')
+  const [selectedTemplateAuthorId, setSelectedTemplateAuthorId] = useState('')
+  const [selectedWorldBookAuthorId, setSelectedWorldBookAuthorId] = useState('')
   const [selectedTags, setSelectedTags] = useState({
     include: [],
     exclude: [],
   })
   const [characters, setCharacters] = useState([])
+  const [databaseTemplates, setDatabaseTemplates] = useState([])
+  const [worldBooks, setWorldBooks] = useState([])
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isCheckingSession, setIsCheckingSession] = useState(true)
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(false)
   const [loginError, setLoginError] = useState(null)
   const [isLoggingIn, setIsLoggingIn] = useState(false)
 
-  const loadCharacters = useCallback(async () => {
+  const loadAppData = useCallback(async () => {
     setIsLoadingCharacters(true)
 
     try {
-      const characterCards = await fetchCharacterCards()
+      const [characterCards, templates, loadedWorldBooks] = await Promise.all([
+        fetchCharacterCards(),
+        fetchDatabaseTemplates(),
+        fetchWorldBooks(),
+      ])
       setCharacters((currentCharacters) => {
         releaseCharacterCardImages(currentCharacters)
         return characterCards
       })
+      setDatabaseTemplates(templates)
+      setWorldBooks(loadedWorldBooks)
       setIsAuthenticated(true)
       return true
     } catch (error) {
@@ -52,6 +91,8 @@ function App() {
         releaseCharacterCardImages(currentCharacters)
         return []
       })
+      setDatabaseTemplates([])
+      setWorldBooks([])
       return false
     } finally {
       setIsLoadingCharacters(false)
@@ -86,7 +127,7 @@ function App() {
           return
         }
 
-        loadCharacters()
+        loadAppData()
       } finally {
         if (isMounted) {
           setIsCheckingSession(false)
@@ -99,7 +140,7 @@ function App() {
     return () => {
       isMounted = false
     }
-  }, [loadCharacters])
+  }, [loadAppData])
 
   const filteredCharacters = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
@@ -165,15 +206,79 @@ function App() {
     )
   }, [characters])
 
+  const filteredDatabaseTemplates = useMemo(() => {
+    return databaseTemplates.filter((template) => {
+      if (
+        selectedTemplateAuthorId &&
+        String(template.authorId) !== selectedTemplateAuthorId
+      ) {
+        return false
+      }
+
+      return true
+    })
+  }, [databaseTemplates, selectedTemplateAuthorId])
+
+  const filteredWorldBooks = useMemo(() => {
+    return worldBooks.filter((worldBook) => {
+      if (
+        selectedWorldBookAuthorId &&
+        String(worldBook.authorId) !== selectedWorldBookAuthorId
+      ) {
+        return false
+      }
+
+      return true
+    })
+  }, [selectedWorldBookAuthorId, worldBooks])
+
+  const templateAuthorOptions = useMemo(() => {
+    const authorsById = new Map()
+
+    databaseTemplates.forEach((template) => {
+      if (!template.authorId) {
+        return
+      }
+
+      authorsById.set(String(template.authorId), {
+        id: String(template.authorId),
+        name: template.author ?? t('authorById', { id: template.authorId }),
+      })
+    })
+
+    return [...authorsById.values()].sort((firstAuthor, secondAuthor) =>
+      firstAuthor.name.localeCompare(secondAuthor.name),
+    )
+  }, [databaseTemplates, t])
+
+  const worldBookAuthorOptions = useMemo(() => {
+    const authorsById = new Map()
+
+    worldBooks.forEach((worldBook) => {
+      if (!worldBook.authorId) {
+        return
+      }
+
+      authorsById.set(String(worldBook.authorId), {
+        id: String(worldBook.authorId),
+        name: worldBook.author ?? t('authorById', { id: worldBook.authorId }),
+      })
+    })
+
+    return [...authorsById.values()].sort((firstAuthor, secondAuthor) =>
+      firstAuthor.name.localeCompare(secondAuthor.name),
+    )
+  }, [t, worldBooks])
+
   async function handleLogin(credentials) {
     setIsLoggingIn(true)
     setLoginError(null)
 
     try {
       await loginToDirectus(credentials)
-      await loadCharacters()
+      await loadAppData()
       if (route.page !== pages.detail) {
-        navigateToRoute({ page: pages.characters })
+        navigateToRoute(isListRoute(route) ? route : { page: pages.characters })
       }
     } catch (error) {
       setLoginError(error)
@@ -189,14 +294,40 @@ function App() {
       releaseCharacterCardImages(currentCharacters)
       return []
     })
+    setDatabaseTemplates([])
+    setWorldBooks([])
     setSearchTerm('')
     setSelectedAuthorId('')
+    setSelectedTemplateAuthorId('')
+    setSelectedWorldBookAuthorId('')
     setSelectedTags({ include: [], exclude: [] })
     navigateToRoute({ page: pages.characters }, { replace: true })
   }
 
   function handleShowCharacters() {
     navigateToRoute({ page: pages.characters })
+  }
+
+  function handleAuthorShortcut(character) {
+    setSearchTerm('')
+    setSelectedTags({ include: [], exclude: [] })
+    setSelectedAuthorId(character.authorId ? String(character.authorId) : '')
+    navigateToRoute({ page: pages.characters })
+  }
+
+  function handleTagShortcut(tag) {
+    setSearchTerm('')
+    setSelectedAuthorId('')
+    setSelectedTags({ include: [tag], exclude: [] })
+    navigateToRoute({ page: pages.characters })
+  }
+
+  function handleShowTemplates() {
+    navigateToRoute({ page: pages.templates })
+  }
+
+  function handleShowWorldBooks() {
+    navigateToRoute({ page: pages.worldBooks })
   }
 
   function handleCharacterOpen(character) {
@@ -229,7 +360,7 @@ function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">{t('appName')}</p>
-          <h1>{t('pageTitle')}</h1>
+          <h1>{getPageTitle(route, t)}</h1>
         </div>
         <div className="topbar-actions">
           <LanguageSwitcher />
@@ -238,10 +369,28 @@ function App() {
               <nav className="page-switcher" aria-label={t('navPrimary')}>
                 <button
                   type="button"
-                  className="is-active"
+                  className={
+                    route.page === pages.characters || route.page === pages.detail
+                      ? 'is-active'
+                      : ''
+                  }
                   onClick={handleShowCharacters}
                 >
                   {t('cardsTab')}
+                </button>
+                <button
+                  type="button"
+                  className={route.page === pages.templates ? 'is-active' : ''}
+                  onClick={handleShowTemplates}
+                >
+                  {t('templatesTab')}
+                </button>
+                <button
+                  type="button"
+                  className={route.page === pages.worldBooks ? 'is-active' : ''}
+                  onClick={handleShowWorldBooks}
+                >
+                  {t('worldBooksTab')}
                 </button>
               </nav>
               {isAuthenticated ? (
@@ -269,8 +418,30 @@ function App() {
             <CharacterDetailPage
               character={selectedCharacter}
               selectedVersionId={route.versionId}
+              onAuthorFilter={handleAuthorShortcut}
               onBack={handleShowCharacters}
+              onTagFilter={handleTagShortcut}
               onVersionChange={handleVersionChange}
+            />
+          ) : route.page === pages.templates ? (
+            <DatabaseTemplateListPage
+              items={filteredDatabaseTemplates}
+              isCheckingSession={isCheckingSession}
+              isLoading={isLoadingCharacters}
+              authorOptions={templateAuthorOptions}
+              selectedAuthorId={selectedTemplateAuthorId}
+              onAuthorChange={setSelectedTemplateAuthorId}
+              labels={databaseTemplateLabels}
+            />
+          ) : route.page === pages.worldBooks ? (
+            <DatabaseTemplateListPage
+              items={filteredWorldBooks}
+              isCheckingSession={isCheckingSession}
+              isLoading={isLoadingCharacters}
+              authorOptions={worldBookAuthorOptions}
+              selectedAuthorId={selectedWorldBookAuthorId}
+              onAuthorChange={setSelectedWorldBookAuthorId}
+              labels={worldBookLabels}
             />
           ) : (
             <CharacterListPage
@@ -283,7 +454,9 @@ function App() {
               tagOptions={tagOptions}
               selectedTags={selectedTags}
               onTagsChange={setSelectedTags}
+              onAuthorShortcut={handleAuthorShortcut}
               onCharacterOpen={handleCharacterOpen}
+              onTagShortcut={handleTagShortcut}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
             />
@@ -311,6 +484,24 @@ function RouteStatusPanel({ title, message }) {
   )
 }
 
+function getPageTitle(route, t) {
+  if (route.page === pages.templates) {
+    return t('templatesPageTitle')
+  }
+
+  if (route.page === pages.worldBooks) {
+    return t('worldBooksPageTitle')
+  }
+
+  return t('pageTitle')
+}
+
+function isListRoute(route) {
+  return route.page === pages.characters ||
+    route.page === pages.templates ||
+    route.page === pages.worldBooks
+}
+
 function navigateToRoute(route, options = {}) {
   const path = getPathFromRoute(route)
 
@@ -324,6 +515,14 @@ function navigateToRoute(route, options = {}) {
 }
 
 function getRouteFromLocation() {
+  if (window.location.pathname === '/templates') {
+    return { page: pages.templates }
+  }
+
+  if (window.location.pathname === '/world-books') {
+    return { page: pages.worldBooks }
+  }
+
   const match = window.location.pathname.match(
     /^\/characters\/([^/]+)(?:\/versions\/([^/]+))?\/?$/,
   )
@@ -340,6 +539,14 @@ function getRouteFromLocation() {
 }
 
 function getPathFromRoute(route) {
+  if (route.page === pages.templates) {
+    return '/templates'
+  }
+
+  if (route.page === pages.worldBooks) {
+    return '/world-books'
+  }
+
   if (route.page === pages.detail && route.characterId) {
     return route.versionId
       ? `/characters/${route.characterId}/versions/${route.versionId}`

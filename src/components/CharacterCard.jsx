@@ -1,6 +1,12 @@
 import { useI18n } from '../i18n/i18nContext.js'
 
-export function CharacterCard({ character, detailPath, onOpen }) {
+export function CharacterCard({
+  character,
+  detailPath,
+  onAuthorFilter,
+  onOpen,
+  onTagFilter,
+}) {
   const { t } = useI18n()
   const author =
     character.author ??
@@ -11,7 +17,7 @@ export function CharacterCard({ character, detailPath, onOpen }) {
   return (
     <article className="character-card">
       <a
-        className="character-card-link"
+        className="character-media-link"
         href={detailPath}
         onClick={(event) => {
           event.preventDefault()
@@ -30,22 +36,47 @@ export function CharacterCard({ character, detailPath, onOpen }) {
           {t('noCardImage')}
         </div>
       )}
+      </a>
       <div className="character-card-body">
         <div className="character-card-heading">
-          <h3>{character.name}</h3>
-          <p>{t('byAuthor', { author })}</p>
+          <a
+            className="character-title-link"
+            href={detailPath}
+            onClick={(event) => {
+              event.preventDefault()
+              onOpen(character)
+            }}
+          >
+            <h3>{character.name}</h3>
+          </a>
+          <p>
+            {character.authorId ? (
+              <button
+                className="inline-filter-button"
+                type="button"
+                onClick={() => onAuthorFilter(character)}
+              >
+                {t('byAuthor', { author })}
+              </button>
+            ) : (
+              t('byAuthor', { author })
+            )}
+          </p>
         </div>
         {character.tags.length > 0 ? (
           <ul className="tag-list" aria-label={t('tagsLabel', { name: character.name })}>
             {character.tags.map((tag) => (
-              <li key={tag}>{tag}</li>
+              <li key={tag}>
+                <button type="button" onClick={() => onTagFilter(tag)}>
+                  {tag}
+                </button>
+              </li>
             ))}
           </ul>
         ) : (
           <p className="no-tags">{t('noTags')}</p>
         )}
       </div>
-      </a>
     </article>
   )
 }
