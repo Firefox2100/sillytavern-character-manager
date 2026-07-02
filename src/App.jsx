@@ -208,27 +208,15 @@ function App() {
 
   const filteredDatabaseTemplates = useMemo(() => {
     return databaseTemplates.filter((template) => {
-      if (
-        selectedTemplateAuthorId &&
-        String(template.authorId) !== selectedTemplateAuthorId
-      ) {
-        return false
-      }
-
-      return true
+      return !(selectedTemplateAuthorId &&
+          String(template.authorId) !== selectedTemplateAuthorId);
     })
   }, [databaseTemplates, selectedTemplateAuthorId])
 
   const filteredWorldBooks = useMemo(() => {
     return worldBooks.filter((worldBook) => {
-      if (
-        selectedWorldBookAuthorId &&
-        String(worldBook.authorId) !== selectedWorldBookAuthorId
-      ) {
-        return false
-      }
-
-      return true
+      return !(selectedWorldBookAuthorId &&
+          String(worldBook.authorId) !== selectedWorldBookAuthorId);
     })
   }, [selectedWorldBookAuthorId, worldBooks])
 
@@ -338,6 +326,14 @@ function App() {
     })
   }
 
+  function handleForkOpen(character) {
+    navigateToRoute({
+      page: pages.detail,
+      characterId: String(character.forkedFromCharacterId),
+      versionId: String(character.forkedFromVersionId),
+    })
+  }
+
   function handleVersionChange(versionId) {
     if (route.page !== pages.detail) {
       return
@@ -420,6 +416,7 @@ function App() {
               selectedVersionId={route.versionId}
               onAuthorFilter={handleAuthorShortcut}
               onBack={handleShowCharacters}
+              onForkOpen={handleForkOpen}
               onTagFilter={handleTagShortcut}
               onVersionChange={handleVersionChange}
             />

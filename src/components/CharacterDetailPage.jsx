@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../i18n/i18nContext.js'
-import { fetchAssetBlob } from '../services/directusClient.js'
+import { createSignedFileLink, fetchAssetBlob } from '../services/directusClient.js'
 import { extractCardExcerptFromPng } from '../services/sillyTavernCard.js'
 
 export function CharacterDetailPage({
@@ -8,6 +8,7 @@ export function CharacterDetailPage({
   selectedVersionId,
   onAuthorFilter,
   onBack,
+  onForkOpen,
   onTagFilter,
   onVersionChange,
 }) {
@@ -21,6 +22,11 @@ export function CharacterDetailPage({
     versionId: null,
     data: null,
     error: '',
+  })
+  const [copyState, setCopyState] = useState({
+    versionId: null,
+    status: 'idle',
+    message: '',
   })
 
   const selectedVersion = useMemo(() => {
@@ -128,6 +134,36 @@ export function CharacterDetailPage({
     !selectedVersion.assetId
       ? { versionId: selectedVersion.id, data: null, error: '' }
       : cardExcerpt.versionId === selectedVersion.id ? cardExcerpt : null
+  const selectedCopyState =
+    copyState.versionId === selectedVersion.id ? copyState : null
+
+  async function copyDownloadLink() {
+    if (!selectedVersion.assetId) {
+      return
+    }
+
+    setCopyState({
+      versionId: selectedVersion.id,
+      status: 'loading',
+      message: '',
+    })
+
+    try {
+      const url = await createSignedFileLink(selectedVersion.assetId)
+      await copyTextToClipboard(url)
+      setCopyState({
+        versionId: selectedVersion.id,
+        status: 'success',
+        message: t('downloadLinkCopied'),
+      })
+    } catch (error) {
+      setCopyState({
+        versionId: selectedVersion.id,
+        status: 'error',
+        message: error?.message ?? t('downloadLinkCopyFailed'),
+      })
+    }
+  }
 
   return (
     <section className="detail-page" aria-labelledby="detail-title">
@@ -182,6 +218,41 @@ export function CharacterDetailPage({
               ))}
             </select>
           </label>
+
+          <div className="detail-actions">
+            <button
+              className="secondary-action"
+              type="button"
+              disabled={!selectedVersion.assetId || selectedCopyState?.status === 'loading'}
+              onClick={copyDownloadLink}
+            >
+              {selectedCopyState?.status === 'loading'
+                ? t('copyingDownloadLink')
+                : t('copyDownloadLink')}
+            </button>
+            {selectedCopyState?.message ? (
+              <p
+                className={`copy-status ${
+                  selectedCopyState.status === 'error' ? 'is-error' : ''
+                }`}
+              >
+                {selectedCopyState.message}
+              </p>
+            ) : null}
+          </div>
+
+          {character.forkedFromCharacterId && character.forkedFromVersionId ? (
+            <div className="detail-section">
+              <h3>{t('forkedFrom')}</h3>
+              <button
+                className="inline-filter-button"
+                type="button"
+                onClick={() => onForkOpen(character)}
+              >
+                {formatForkSource(character)}
+              </button>
+            </div>
+          ) : null}
 
           <div className="detail-section">
             <h3>{t('tags')}</h3>
@@ -317,6 +388,32 @@ function formatSpec(excerpt) {
   return [excerpt.spec, excerpt.specVersion].filter(Boolean).join(' / ')
 }
 
+function formatForkSource(character) {
+  const source = [
+    character.forkedFromCharacterName,
+    character.forkedFromVersion,
+  ].filter(Boolean).join(' / ')
+
+  return source || `#${character.forkedFromVersionId}`
+}
+
 function getExternalUrl(url) {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  const textArea = document.createElement('textarea')
+  textArea.value = text
+  textArea.setAttribute('readonly', '')
+  textArea.style.position = 'absolute'
+  textArea.style.left = '-9999px'
+  document.body.append(textArea)
+  textArea.select()
+  document.execCommand('copy')
+  textArea.remove()
 }

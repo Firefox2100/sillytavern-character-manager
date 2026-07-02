@@ -44,7 +44,18 @@ export async function fetchCharacterCards() {
   const [characters, versions] = await Promise.all([
     directusClient.request(
       readItems('characters', {
-        fields: ['id', 'name', 'description', 'url', 'author.id', 'author.name'],
+        fields: [
+          'id',
+          'name',
+          'description',
+          'url',
+          'root_asset.id',
+          'root_asset.name',
+          'forked_from.id',
+          'forked_from.version',
+          'author.id',
+          'author.name',
+        ],
         limit: -1,
         sort: ['name'],
       }),
@@ -93,6 +104,10 @@ export async function fetchCharacterCards() {
       author: getAuthorName(character.author),
       authorId: getRelationId(character.author),
       description: character.description,
+      forkedFromCharacterId: getRelationId(character.root_asset),
+      forkedFromCharacterName: getCharacterName(character.root_asset),
+      forkedFromVersion: getForkedVersion(character.forked_from),
+      forkedFromVersionId: getRelationId(character.forked_from),
       sourceUrl: character.url,
       version: latestVersion?.version ?? null,
       versionId: latestVersion?.id ?? null,
@@ -184,6 +199,22 @@ function getAuthorName(author) {
   return null
 }
 
+function getCharacterName(character) {
+  if (!character || typeof character !== 'object') {
+    return null
+  }
+
+  return character.name ?? null
+}
+
+function getForkedVersion(version) {
+  if (!version || typeof version !== 'object') {
+    return null
+  }
+
+  return version.version ?? null
+}
+
 function getPreviousVersionName(previousVersion) {
   if (!previousVersion || typeof previousVersion !== 'object') {
     return null
@@ -235,6 +266,32 @@ export async function fetchAssetBlob(assetId) {
   }
 
   return response.blob()
+}
+
+export async function createSignedFileLink(
+  assetId,
+  options = { ttlSeconds: 300, download: true },
+) {
+  const token = await directusClient.getToken()
+  const response = await fetch(`${DIRECTUS_URL}/signed-files/${assetId}/sign`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      ttl_seconds: options.ttlSeconds,
+      download: options.download,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Could not create signed link for file ${assetId}.`)
+  }
+
+  const payload = await response.json()
+  return payload.data?.url
 }
 
 async function fetchAssetText(assetId) {

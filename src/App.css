@@ -691,6 +691,24 @@ input:focus {
   font: inherit;
 }
 
+.detail-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.copy-status {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.copy-status.is-error {
+  color: #8f1d1d;
+}
+
 .detail-section {
   display: grid;
   gap: 10px;
@@ -856,6 +874,11 @@ input:focus {
   font: inherit;
   font-weight: 800;
   cursor: pointer;
+}
+
+.secondary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .form-error {
