@@ -10,6 +10,7 @@ import {
   fetchCharacterCards,
   fetchDatabaseTemplates,
   fetchWorldBooks,
+  fetchAssetObjectUrl,
   hasDirectusSession,
   loginToDirectus,
   logoutFromDirectus,
@@ -65,24 +66,21 @@ function App() {
   const [isCheckingSession, setIsCheckingSession] = useState(true)
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(false)
   const [loginError, setLoginError] = useState(null)
+  const [isOtpRequired, setIsOtpRequired] = useState(false)
   const [isLoggingIn, setIsLoggingIn] = useState(false)
 
   const loadAppData = useCallback(async () => {
     setIsLoadingCharacters(true)
 
     try {
-      const [characterCards, templates, loadedWorldBooks] = await Promise.all([
-        fetchCharacterCards(),
-        fetchDatabaseTemplates(),
-        fetchWorldBooks(),
-      ])
+      const characterCards = await fetchCharacterCards()
       setCharacters((currentCharacters) => {
         releaseCharacterCardImages(currentCharacters)
         return characterCards
       })
-      setDatabaseTemplates(templates)
-      setWorldBooks(loadedWorldBooks)
       setIsAuthenticated(true)
+      loadCharacterCoverImages(characterCards, setCharacters)
+      loadSecondaryCollections(setDatabaseTemplates, setWorldBooks)
       return true
     } catch (error) {
       setLoginError(error)
@@ -264,12 +262,20 @@ function App() {
 
     try {
       await loginToDirectus(credentials)
+      setIsOtpRequired(false)
       await loadAppData()
       if (route.page !== pages.detail) {
         navigateToRoute(isListRoute(route) ? route : { page: pages.characters })
       }
     } catch (error) {
-      setLoginError(error)
+      if (isInvalidOtpError(error)) {
+        setIsOtpRequired(true)
+        setLoginError({
+          i18nKey: 'otpRequired',
+        })
+      } else {
+        setLoginError(error)
+      }
     } finally {
       setIsLoggingIn(false)
     }
@@ -289,6 +295,7 @@ function App() {
     setSelectedTemplateAuthorId('')
     setSelectedWorldBookAuthorId('')
     setSelectedTags({ include: [], exclude: [] })
+    setIsOtpRequired(false)
     navigateToRoute({ page: pages.characters }, { replace: true })
   }
 
@@ -461,6 +468,7 @@ function App() {
         ) : (
           <LoginPage
             error={loginError ? getErrorMessage(loginError, t) : ''}
+            isOtpRequired={isOtpRequired}
             isLoading={isLoggingIn}
             onLogin={handleLogin}
           />
@@ -559,6 +567,59 @@ function getErrorMessage(error, t) {
   }
 
   return error?.errors?.[0]?.message ?? error?.message ?? t('genericError')
+}
+
+function isInvalidOtpError(error) {
+  return error?.errors?.some((directusError) =>
+    directusError.extensions?.code === 'INVALID_OTP' ||
+    directusError.extensions?.reason === 'INVALID_OTP',
+  )
+}
+
+async function loadSecondaryCollections(setDatabaseTemplates, setWorldBooks) {
+  const [templatesResult, worldBooksResult] = await Promise.allSettled([
+    fetchDatabaseTemplates(),
+    fetchWorldBooks(),
+  ])
+
+  if (templatesResult.status === 'fulfilled') {
+    setDatabaseTemplates(templatesResult.value)
+  }
+
+  if (worldBooksResult.status === 'fulfilled') {
+    setWorldBooks(worldBooksResult.value)
+  }
+}
+
+function loadCharacterCoverImages(characterCards, setCharacters) {
+  characterCards.forEach((character) => {
+    if (!character.imageAssetId) {
+      return
+    }
+
+    fetchAssetObjectUrl(character.imageAssetId)
+      .then((imageUrl) => {
+        setCharacters((currentCharacters) =>
+          currentCharacters.map((currentCharacter) => {
+            if (currentCharacter.id !== character.id) {
+              return currentCharacter
+            }
+
+            return {
+              ...currentCharacter,
+              imageUrl,
+              versions: currentCharacter.versions.map((version, index) => ({
+                ...version,
+                imageUrl: index === 0 ? imageUrl : version.imageUrl,
+              })),
+            }
+          }),
+        )
+      })
+      .catch(() => {
+        // Keep the existing placeholder if a cover cannot be fetched.
+      })
+  })
 }
 
 export default App

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useI18n } from '../i18n/i18nContext.js'
 
-export function LoginPage({ error, isLoading, onLogin }) {
+export function LoginPage({ error, isLoading, isOtpRequired, onLogin }) {
   const { t } = useI18n()
   const [credentials, setCredentials] = useState({
     username: '',
     password: '',
+    otp: '',
   })
   const [showPassword, setShowPassword] = useState(false)
 
@@ -62,6 +63,21 @@ export function LoginPage({ error, isLoading, onLogin }) {
             </button>
           </div>
         </label>
+
+        {isOtpRequired ? (
+          <label className="form-field">
+            <span>{t('otp')}</span>
+            <input
+              type="text"
+              name="otp"
+              autoComplete="one-time-code"
+              disabled={isLoading}
+              inputMode="numeric"
+              value={credentials.otp}
+              onChange={(event) => updateField('otp', event.target.value)}
+            />
+          </label>
+        ) : null}
 
         {error ? <p className="form-error">{error}</p> : null}
 

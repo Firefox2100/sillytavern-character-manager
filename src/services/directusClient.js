@@ -24,11 +24,13 @@ export const directusClient = createDirectus(DIRECTUS_URL)
     }),
   )
 
-export async function loginToDirectus({ username, password }) {
-  return directusClient.login({
+export async function loginToDirectus({ username, password, otp }) {
+  const credentials = {
     email: username,
     password,
-  })
+  }
+
+  return directusClient.login(credentials, otp ? { otp } : undefined)
 }
 
 export async function logoutFromDirectus() {
@@ -91,12 +93,9 @@ export async function fetchCharacterCards() {
     return groupedVersions
   }, new Map())
 
-  return Promise.all(characters.map(async (character) => {
+  return characters.map((character) => {
     const characterVersions = versionsByCharacter.get(getRelationKey(character.id)) ?? []
     const latestVersion = characterVersions[0] ?? null
-    const imageUrl = latestVersion?.assetId
-      ? await fetchAssetObjectUrl(latestVersion.assetId)
-      : null
 
     return {
       id: character.id,
@@ -111,14 +110,15 @@ export async function fetchCharacterCards() {
       sourceUrl: character.url,
       version: latestVersion?.version ?? null,
       versionId: latestVersion?.id ?? null,
-      imageUrl,
+      imageAssetId: latestVersion?.assetId ?? null,
+      imageUrl: null,
       tags: latestVersion?.tags ?? [],
-      versions: characterVersions.map((version, index) => ({
+      versions: characterVersions.map((version) => ({
         ...version,
-        imageUrl: index === 0 ? imageUrl : null,
+        imageUrl: null,
       })),
     }
-  }))
+  })
 }
 
 export async function fetchDatabaseTemplates() {
