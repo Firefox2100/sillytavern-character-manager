@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../i18n/i18nContext.js'
-import { createSignedFileLink, fetchAssetBlob } from '../services/directusClient.js'
+import {
+  createSignedFileLink,
+  downloadAsset,
+  fetchAssetBlob,
+} from '../services/directusClient.js'
 import { extractCardExcerptFromPng } from '../services/sillyTavernCard.js'
 
 export function CharacterDetailPage({
@@ -24,6 +28,11 @@ export function CharacterDetailPage({
     error: '',
   })
   const [copyState, setCopyState] = useState({
+    versionId: null,
+    status: 'idle',
+    message: '',
+  })
+  const [downloadState, setDownloadState] = useState({
     versionId: null,
     status: 'idle',
     message: '',
@@ -136,6 +145,35 @@ export function CharacterDetailPage({
       : cardExcerpt.versionId === selectedVersion.id ? cardExcerpt : null
   const selectedCopyState =
     copyState.versionId === selectedVersion.id ? copyState : null
+  const selectedDownloadState =
+    downloadState.versionId === selectedVersion.id ? downloadState : null
+
+  async function downloadCard() {
+    if (!selectedVersion.assetId) {
+      return
+    }
+
+    setDownloadState({
+      versionId: selectedVersion.id,
+      status: 'loading',
+      message: '',
+    })
+
+    try {
+      await downloadAsset(selectedVersion.assetId, `${character.name}.png`)
+      setDownloadState({
+        versionId: selectedVersion.id,
+        status: 'success',
+        message: '',
+      })
+    } catch {
+      setDownloadState({
+        versionId: selectedVersion.id,
+        status: 'error',
+        message: t('cardDownloadFailed'),
+      })
+    }
+  }
 
   async function copyDownloadLink() {
     if (!selectedVersion.assetId) {
@@ -223,6 +261,19 @@ export function CharacterDetailPage({
             <button
               className="secondary-action"
               type="button"
+              disabled={
+                !selectedVersion.assetId ||
+                selectedDownloadState?.status === 'loading'
+              }
+              onClick={downloadCard}
+            >
+              {selectedDownloadState?.status === 'loading'
+                ? t('downloadingCard')
+                : t('downloadCard')}
+            </button>
+            <button
+              className="secondary-action"
+              type="button"
               disabled={!selectedVersion.assetId || selectedCopyState?.status === 'loading'}
               onClick={copyDownloadLink}
             >
@@ -230,6 +281,11 @@ export function CharacterDetailPage({
                 ? t('copyingDownloadLink')
                 : t('copyDownloadLink')}
             </button>
+            {selectedDownloadState?.message ? (
+              <p className="copy-status is-error">
+                {selectedDownloadState.message}
+              </p>
+            ) : null}
             {selectedCopyState?.message ? (
               <p
                 className={`copy-status ${

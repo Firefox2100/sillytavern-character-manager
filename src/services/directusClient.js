@@ -253,10 +253,32 @@ export async function fetchAssetObjectUrl(assetId) {
 }
 
 export async function fetchAssetBlob(assetId) {
+  return fetchAsset(assetId)
+}
+
+export async function downloadAsset(assetId, fileName) {
+  const blob = await fetchAsset(assetId, fileName)
+  const objectUrl = URL.createObjectURL(blob)
+  const downloadLink = document.createElement('a')
+
+  downloadLink.href = objectUrl
+  downloadLink.download = fileName
+  document.body.append(downloadLink)
+  downloadLink.click()
+  downloadLink.remove()
+  URL.revokeObjectURL(objectUrl)
+}
+
+async function fetchAsset(assetId, fileName) {
   const token = await directusClient.getToken()
-  const response = await fetch(`${DIRECTUS_URL}/assets/${assetId}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  })
+  const filenamePath = fileName ? `/${encodeURIComponent(fileName)}` : ''
+  const downloadQuery = fileName ? '?download' : ''
+  const response = await fetch(
+    `${DIRECTUS_URL}/assets/${assetId}${filenamePath}${downloadQuery}`,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    },
+  )
 
   if (!response.ok) {
     throw Object.assign(new Error('imageLoadError'), {
