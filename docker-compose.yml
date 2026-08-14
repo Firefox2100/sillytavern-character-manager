@@ -1,0 +1,39 @@
+name: sillytavern-character-manager
+
+services:
+  app:
+    image: ghcr.io/firefox2100/sillytavern-character-manager:latest
+    restart: unless-stopped
+    depends_on:
+      - directus
+    ports:
+      - "8769:80"
+
+  directus:
+    image: directus/directus:12.0.2
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./data/database:/directus/database
+      - ./data/uploads:/directus/uploads
+      - ./extensions:/directus/extensions
+      - ./directus-snapshot.json:/directus/directus-snapshot.json:ro
+    environment:
+      SECRET: "change-this-to-a-long-random-secret-at-least-32-chars"
+      TZ: Europe/London
+      DB_CLIENT: "sqlite3"
+      DB_FILENAME: "/directus/database/data.db"
+      STORAGE_LOCATIONS: "local"
+      STORAGE_LOCAL_DRIVER: "local"
+      STORAGE_LOCAL_ROOT: "/directus/uploads"
+
+      WEBSOCKETS_ENABLED: "true"
+      PUBLIC_URL: "http://localhost:8769/api"
+      LICENSE_KEY: ""
+      ADMIN_EMAIL: "youremail@example.com"
+      ADMIN_PASSWORD: "ChangeMe123!"
+
+      SIGNED_FILES_SECRET: "change-this-to-a-long-random-secret-at-least-32-chars"
+      SIGNED_FILES_DEFAULT_TTL_SECONDS: 300
+      SIGNED_FILES_MAX_TTL_SECONDS: 900
