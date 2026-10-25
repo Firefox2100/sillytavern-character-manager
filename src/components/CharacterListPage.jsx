@@ -97,7 +97,7 @@ function getCharacterDetailPath(characterId, versionId) {
 
 function StatusPanel({ title, message }) {
   return (
-    <div className="status-panel">
+    <div className="status-panel" role="status" aria-live="polite">
       <h2>{title}</h2>
       <p>{message}</p>
     </div>

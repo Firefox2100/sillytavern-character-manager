@@ -10,7 +10,7 @@ services:
       - "8769:80"
 
   directus:
-    image: directus/directus:12.0.2
+    image: directus/directus:12.5.1
     restart: unless-stopped
     volumes:
       - /etc/localtime:/etc/localtime:ro
@@ -27,6 +27,8 @@ services:
       STORAGE_LOCATIONS: "local"
       STORAGE_LOCAL_DRIVER: "local"
       STORAGE_LOCAL_ROOT: "/directus/uploads"
+      ASSETS_CACHE_TTL: "30d"
+      ASSETS_TRANSFORM_MAX_CONCURRENT: "2"
 
       WEBSOCKETS_ENABLED: "true"
       PUBLIC_URL: "http://localhost:8769/api"

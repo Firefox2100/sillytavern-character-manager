@@ -362,7 +362,7 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">{t('appName')}</p>
+          <p className="product-name">{t('appName')}</p>
           <h1>{getPageTitle(route, t)}</h1>
         </div>
         <div className="topbar-actions">
@@ -372,6 +372,11 @@ function App() {
               <nav className="page-switcher" aria-label={t('navPrimary')}>
                 <button
                   type="button"
+                  aria-current={
+                    route.page === pages.characters || route.page === pages.detail
+                      ? 'page'
+                      : undefined
+                  }
                   className={
                     route.page === pages.characters || route.page === pages.detail
                       ? 'is-active'
@@ -383,6 +388,7 @@ function App() {
                 </button>
                 <button
                   type="button"
+                  aria-current={route.page === pages.templates ? 'page' : undefined}
                   className={route.page === pages.templates ? 'is-active' : ''}
                   onClick={handleShowTemplates}
                 >
@@ -390,6 +396,7 @@ function App() {
                 </button>
                 <button
                   type="button"
+                  aria-current={route.page === pages.worldBooks ? 'page' : undefined}
                   className={route.page === pages.worldBooks ? 'is-active' : ''}
                   onClick={handleShowWorldBooks}
                 >
@@ -481,7 +488,7 @@ function App() {
 function RouteStatusPanel({ title, message }) {
   return (
     <section className="detail-page">
-      <div className="status-panel">
+      <div className="status-panel" role="status" aria-live="polite">
         <h2>{title}</h2>
         <p>{message}</p>
       </div>

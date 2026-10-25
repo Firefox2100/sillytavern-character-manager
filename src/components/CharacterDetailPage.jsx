@@ -226,7 +226,6 @@ export function CharacterDetailPage({
 
         <div className="detail-content">
           <div>
-            <p className="eyebrow">{t('characterDetails')}</p>
             <h2 id="detail-title">{character.name}</h2>
             <p className="detail-author">
               {character.authorId ? (
@@ -282,7 +281,7 @@ export function CharacterDetailPage({
                 : t('copyDownloadLink')}
             </button>
             {selectedDownloadState?.message ? (
-              <p className="copy-status is-error">
+              <p className="copy-status is-error" role="alert">
                 {selectedDownloadState.message}
               </p>
             ) : null}
@@ -291,6 +290,8 @@ export function CharacterDetailPage({
                 className={`copy-status ${
                   selectedCopyState.status === 'error' ? 'is-error' : ''
                 }`}
+                role={selectedCopyState.status === 'error' ? 'alert' : 'status'}
+                aria-live="polite"
               >
                 {selectedCopyState.message}
               </p>

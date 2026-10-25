@@ -26,8 +26,8 @@ export function LoginPage({ error, isLoading, isOtpRequired, onLogin }) {
     <section className="login-page" aria-labelledby="login-title">
       <form className="login-panel" onSubmit={handleSubmit}>
         <div className="form-heading">
-          <p className="eyebrow">{t('directusAccess')}</p>
           <h2 id="login-title">{t('signIn')}</h2>
+          <p>{t('directusAccess')}</p>
         </div>
 
         <label className="form-field">
@@ -79,7 +79,11 @@ export function LoginPage({ error, isLoading, isOtpRequired, onLogin }) {
           </label>
         ) : null}
 
-        {error ? <p className="form-error">{error}</p> : null}
+        {error ? (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        ) : null}
 
         <button className="primary-action" type="submit" disabled={isLoading}>
           {isLoading ? t('loggingIn') : t('logIn')}

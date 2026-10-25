@@ -1,9 +1,13 @@
-node_modules
-dist
 .git
+.github
+.impeccable
 .idea
 .vscode
 data
+dist
+node_modules
+*.log
+*.local
 npm-debug.log*
 Dockerfile*
 docker-compose*.yml

@@ -3,6 +3,7 @@ import { authentication, createDirectus, readItems, rest } from '@directus/sdk'
 const DIRECTUS_PATH = '/api'
 const DIRECTUS_URL = new URL(DIRECTUS_PATH, window.location.origin).toString()
 const AUTH_STORAGE_KEY = 'sillytavern-character-manager.auth'
+const CHARACTER_PREVIEW_TRANSFORM = { key: 'character-card-preview' }
 
 function createLocalStorageAdapter(key) {
   return {
@@ -248,7 +249,7 @@ function getTagNames(tags = []) {
 }
 
 export async function fetchAssetObjectUrl(assetId) {
-  const blob = await fetchAssetBlob(assetId)
+  const blob = await fetchAsset(assetId, undefined, CHARACTER_PREVIEW_TRANSFORM)
   return URL.createObjectURL(blob)
 }
 
@@ -269,12 +270,18 @@ export async function downloadAsset(assetId, fileName) {
   URL.revokeObjectURL(objectUrl)
 }
 
-async function fetchAsset(assetId, fileName) {
+async function fetchAsset(assetId, fileName, transformation = {}) {
   const token = await directusClient.getToken()
   const filenamePath = fileName ? `/${encodeURIComponent(fileName)}` : ''
-  const downloadQuery = fileName ? '?download' : ''
+  const query = new URLSearchParams(transformation)
+
+  if (fileName) {
+    query.set('download', '')
+  }
+
+  const queryString = query.size > 0 ? `?${query.toString()}` : ''
   const response = await fetch(
-    `${DIRECTUS_URL}/assets/${assetId}${filenamePath}${downloadQuery}`,
+    `${DIRECTUS_URL}/assets/${assetId}${filenamePath}${queryString}`,
     {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     },

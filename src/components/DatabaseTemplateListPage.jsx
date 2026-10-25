@@ -32,10 +32,7 @@ export function DatabaseTemplateListPage({
 
       <section className="content-panel">
         <div className="list-toolbar">
-          <div>
-            <p className="section-kicker">{t(labels.tab)}</p>
-            <h2>{t(labels.pageTitle)}</h2>
-          </div>
+          <h2>{t(labels.pageTitle)}</h2>
           <p>{t(labels.count, { count: items.length })}</p>
         </div>
 
@@ -132,7 +129,7 @@ function MetadataItem({ label, value }) {
 
 function StatusPanel({ title, message }) {
   return (
-    <div className="status-panel">
+    <div className="status-panel" role="status" aria-live="polite">
       <h2>{title}</h2>
       <p>{message}</p>
     </div>

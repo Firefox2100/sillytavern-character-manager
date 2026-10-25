@@ -9,6 +9,9 @@
   --accent: #247c73;
   --accent-strong: #17635b;
   --accent-soft: #dff2ef;
+  --danger: #8f1d1d;
+  --danger-border: #e7a5a5;
+  --danger-soft: #fff1f1;
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.08);
   --shadow-md: 0 18px 40px rgba(16, 24, 40, 0.12);
   color: var(--text);
@@ -28,6 +31,15 @@
   box-sizing: border-box;
 }
 
+::selection {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+html {
+  scrollbar-color: var(--border-strong) var(--surface-alt);
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -35,7 +47,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 

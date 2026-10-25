@@ -12,6 +12,7 @@ The application supports:
 - Character versions, fork relationships, source links, and version notes
 - Inspection of character data embedded in PNG cards
 - Card downloads and time-limited signed download links
+- Automatically generated WebP previews for character-card list images
 - Database template and world book browsing
 - Directus authentication, including one-time passwords
 - English and Chinese interfaces
@@ -32,6 +33,17 @@ Persistent state is stored in:
 
 - `data/database` — the Directus SQLite database
 - `data/uploads` — uploaded character cards and other files
+
+Character-card list images use a fixed 640-pixel WebP transformation served by
+Directus. Directus creates the derivative on first request and stores it beside
+the original in the configured storage location. Later list views read the much
+smaller derivative, while card inspection and downloads continue to use the
+original PNG and its embedded SillyTavern data. The deployment limits concurrent
+image transformations to two and sends a 30-day browser cache lifetime. The
+Directus project must define a `character-card-preview` asset preset with a
+640-pixel width, `inside` fit, WebP output, quality 78, and upscaling disabled;
+the frontend requests that preset by key so arbitrary transformations can remain
+disabled.
 
 The data model is defined by `directus-snapshot.json`, and Directus extensions
 live under `extensions/`.

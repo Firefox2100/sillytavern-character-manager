@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Directus runtime data
+data/
+
+# Local design-tool state
+.impeccable/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,8 +1,9 @@
 {
 	"name": "directus-extension-signed-files",
-	"description": "Please enter a description for your extension",
+	"description": "Issue short-lived, authenticated download links for Directus files.",
 	"icon": "extension",
-	"version": "1.0.0",
+	"version": "1.1.0",
+	"license": "GPL-3.0-only",
 	"keywords": [
 		"directus",
 		"directus-extension",
@@ -25,12 +26,12 @@
 		"validate": "directus-extension validate"
 	},
 	"devDependencies": {
-		"@directus/extensions-sdk": "18.0.0",
+		"@directus/extensions-sdk": "^18.0.6",
 		"@types/express": "^5.0.6",
-		"@types/node": "^26.1.0",
-		"typescript": "^6.0.3"
+		"@types/node": "^26.6.5",
+		"typescript": "^7.0.2"
 	},
 	"dependencies": {
-		"@directus/errors": "^2.4.0"
+		"@directus/errors": "^3.0.0"
 	}
 }
