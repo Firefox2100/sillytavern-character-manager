@@ -1,9 +1,12 @@
+import { useMemo, useState } from 'react'
 import { AuthorFilter } from './AuthorFilter.jsx'
 import { CharacterCard } from './CharacterCard.jsx'
 import { EmptyState } from './EmptyState.jsx'
 import { SearchInput } from './SearchInput.jsx'
 import { TagFilter } from './TagFilter.jsx'
 import { useI18n } from '../i18n/i18nContext.js'
+
+const DEFAULT_PAGE_SIZE = 15
 
 export function CharacterListPage({
   characters,
@@ -22,8 +25,24 @@ export function CharacterListPage({
   onSearchChange,
 }) {
   const { t } = useI18n()
+  const [currentPage, setCurrentPage] = useState(1)
   const showCards = !isCheckingSession && !isLoading && characters.length > 0
   const showEmptyState = !isCheckingSession && !isLoading && characters.length === 0
+  const pageCount = Math.max(1, Math.ceil(characters.length / DEFAULT_PAGE_SIZE))
+  const activePage = Math.min(currentPage, pageCount)
+  const visibleCharacters = useMemo(() => {
+    const startIndex = (activePage - 1) * DEFAULT_PAGE_SIZE
+    return characters.slice(startIndex, startIndex + DEFAULT_PAGE_SIZE)
+  }, [activePage, characters])
+  const rangeStart = characters.length === 0
+    ? 0
+    : (activePage - 1) * DEFAULT_PAGE_SIZE + 1
+  const rangeEnd = Math.min(activePage * DEFAULT_PAGE_SIZE, characters.length)
+
+  function updateFilter(callback, value) {
+    setCurrentPage(1)
+    callback(value)
+  }
 
   return (
     <section className="workspace" aria-label={t('pageTitle')}>
@@ -36,20 +55,27 @@ export function CharacterListPage({
           <AuthorFilter
             authors={authorOptions}
             selectedAuthorId={selectedAuthorId}
-            onAuthorChange={onAuthorChange}
+            onAuthorChange={(value) => updateFilter(onAuthorChange, value)}
           />
           <TagFilter
             tags={tagOptions}
             selectedTags={selectedTags}
-            onTagsChange={onTagsChange}
+            onTagsChange={(value) => updateFilter(onTagsChange, value)}
           />
         </div>
       </aside>
 
       <section className="content-panel">
         <div className="list-toolbar">
-          <SearchInput value={searchTerm} onChange={onSearchChange} />
-          <p>{t('cardCount', { count: characters.length })}</p>
+          <SearchInput
+            value={searchTerm}
+            onChange={(value) => updateFilter(onSearchChange, value)}
+          />
+          <p>{t('cardRange', {
+            start: rangeStart,
+            end: rangeEnd,
+            count: characters.length,
+          })}</p>
         </div>
 
         {isCheckingSession ? (
@@ -68,7 +94,7 @@ export function CharacterListPage({
 
         {showCards ? (
           <div className="character-grid">
-            {characters.map((character) => (
+            {visibleCharacters.map((character) => (
               <CharacterCard
                 key={character.id}
                 character={character}
@@ -79,6 +105,28 @@ export function CharacterListPage({
               />
             ))}
           </div>
+        ) : null}
+
+        {showCards && pageCount > 1 ? (
+          <nav className="pagination" aria-label={t('paginationLabel')}>
+            <button
+              type="button"
+              disabled={activePage === 1}
+              onClick={() => setCurrentPage(activePage - 1)}
+            >
+              {t('previousPage')}
+            </button>
+            <p aria-live="polite">
+              {t('pagePosition', { page: activePage, count: pageCount })}
+            </p>
+            <button
+              type="button"
+              disabled={activePage === pageCount}
+              onClick={() => setCurrentPage(activePage + 1)}
+            >
+              {t('nextPage')}
+            </button>
+          </nav>
         ) : null}
 
         {showEmptyState ? (

@@ -73,6 +73,18 @@ export async function fetchCharacterCards() {
           'card',
           'tags.*',
           'tags.tags_id.*',
+          'recommended_template.id',
+          'recommended_template.name',
+          'recommended_template.version',
+          'recommended_world_book.id',
+          'recommended_world_book.name',
+          'recommended_world_book.version',
+          'recommended_preset.id',
+          'recommended_preset.name',
+          'recommended_preset.version',
+          'recommended_tasks.x_tasks_id.id',
+          'recommended_tasks.x_tasks_id.name',
+          'recommended_tasks.x_tasks_id.version',
         ],
         limit: -1,
         sort: ['-id'],
@@ -130,6 +142,14 @@ export async function fetchWorldBooks() {
   return fetchFileBackedCollection('world_books', 'world_book')
 }
 
+export async function fetchPresets() {
+  return fetchFileBackedCollection('presets', 'preset')
+}
+
+export async function fetchTasks() {
+  return fetchFileBackedCollection('x_tasks', 'task')
+}
+
 async function fetchFileBackedCollection(collectionName, fileField) {
   const items = await directusClient.request(
     readItems(collectionName, {
@@ -151,7 +171,7 @@ async function fetchFileBackedCollection(collectionName, fileField) {
     }),
   )
 
-  return Promise.all(items.map(async (item) => {
+  return items.map((item) => {
     const fileId = getRelationId(item[fileField])
 
     return {
@@ -159,9 +179,6 @@ async function fetchFileBackedCollection(collectionName, fileField) {
       name: item.name,
       fileId,
       fileName: getFileName(item[fileField]),
-      fileContent: fileId
-        ? await fetchAssetText(fileId)
-        : '',
       version: item.version,
       sourceUrl: item.url,
       author: getAuthorName(item.author),
@@ -169,7 +186,7 @@ async function fetchFileBackedCollection(collectionName, fileField) {
       previousVersionId: getRelationId(item.previous_version),
       previousVersion: getPreviousVersionName(item.previous_version),
     }
-  }))
+  })
 }
 
 function getRelationKey(relationId) {
@@ -231,7 +248,30 @@ function normalizeVersion(version) {
     versionNote: version.version_note,
     assetId: getRelationId(version.card),
     tags: getTagNames(version.tags),
+    recommendations: {
+      templates: normalizeRecommendedItems(version.recommended_template),
+      worldBooks: normalizeRecommendedItems(version.recommended_world_book),
+      presets: normalizeRecommendedItems(version.recommended_preset),
+      tasks: normalizeRecommendedItems(
+        version.recommended_tasks,
+        'x_tasks_id',
+      ),
+    },
   }
+}
+
+function normalizeRecommendedItems(value, relationField) {
+  const values = Array.isArray(value) ? value : value ? [value] : []
+
+  return values
+    .map((entry) => relationField ? entry?.[relationField] : entry)
+    .filter(Boolean)
+    .map((item) => ({
+      id: getRelationId(item),
+      name: typeof item === 'object' ? item.name ?? null : null,
+      version: typeof item === 'object' ? item.version ?? null : null,
+    }))
+    .filter((item) => item.id != null)
 }
 
 function getTagNames(tags = []) {
@@ -323,7 +363,7 @@ export async function createSignedFileLink(
   return payload.data?.url
 }
 
-async function fetchAssetText(assetId) {
+export async function fetchAssetText(assetId) {
   const blob = await fetchAssetBlob(assetId)
   return blob.text()
 }
@@ -334,18 +374,4 @@ function getFileName(file) {
   }
 
   return file.filename_download ?? file.title ?? null
-}
-
-export function releaseCharacterCardImages(characters) {
-  characters.forEach((character) => {
-    if (character.imageUrl?.startsWith('blob:')) {
-      URL.revokeObjectURL(character.imageUrl)
-    }
-
-    character.versions?.forEach((version) => {
-      if (version.imageUrl?.startsWith('blob:') && version.imageUrl !== character.imageUrl) {
-        URL.revokeObjectURL(version.imageUrl)
-      }
-    })
-  })
 }

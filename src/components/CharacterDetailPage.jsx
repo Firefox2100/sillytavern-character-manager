@@ -15,6 +15,7 @@ export function CharacterDetailPage({
   onForkOpen,
   onTagFilter,
   onVersionChange,
+  onResourceOpen,
 }) {
   const { t } = useI18n()
   const [loadedImage, setLoadedImage] = useState({
@@ -343,6 +344,11 @@ export function CharacterDetailPage({
               <p>{selectedVersion.versionNote}</p>
             </div>
           ) : null}
+
+          <RecommendedResources
+            recommendations={selectedVersion.recommendations}
+            onResourceOpen={onResourceOpen}
+          />
         </div>
       </div>
 
@@ -354,6 +360,50 @@ export function CharacterDetailPage({
       ) : null}
 
       <CardExcerptSection excerptState={selectedCardExcerpt} />
+    </section>
+  )
+}
+
+function RecommendedResources({ recommendations, onResourceOpen }) {
+  const { t } = useI18n()
+  const groups = [
+    ['templates', 'templatesTab'],
+    ['worldBooks', 'worldBooksTab'],
+    ['presets', 'presetsTab'],
+    ['tasks', 'tasksTab'],
+  ].map(([type, label]) => ({
+    type,
+    routeType: type === 'worldBooks' ? 'world-books' : type,
+    label,
+    items: recommendations?.[type] ?? [],
+  })).filter((group) => group.items.length > 0)
+
+  if (groups.length === 0) return null
+
+  return (
+    <section className="detail-section recommended-resources">
+      <h3>{t('recommendedResources')}</h3>
+      <div className="recommendation-groups">
+        {groups.map((group) => (
+          <div key={group.type}>
+            <h4>{t(group.label)}</h4>
+            <ul>
+              {group.items.map((item) => (
+                <li key={item.id}>
+                  <button
+                    className="inline-filter-button"
+                    type="button"
+                    onClick={() => onResourceOpen(group.routeType, item.id)}
+                  >
+                    {item.name ?? t('unnamedResource')}
+                    {item.version ? ` · ${item.version}` : ''}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
     </section>
   )
 }

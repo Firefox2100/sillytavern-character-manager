@@ -2,27 +2,33 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { CharacterDetailPage } from './components/CharacterDetailPage.jsx'
 import { CharacterListPage } from './components/CharacterListPage.jsx'
-import { DatabaseTemplateListPage } from './components/DatabaseTemplateListPage.jsx'
+import { ResourceListPage } from './components/ResourceListPage.jsx'
 import { LanguageSwitcher } from './components/LanguageSwitcher.jsx'
 import { LoginPage } from './components/LoginPage.jsx'
 import { useI18n } from './i18n/i18nContext.js'
 import {
   fetchCharacterCards,
   fetchDatabaseTemplates,
+  fetchPresets,
+  fetchTasks,
   fetchWorldBooks,
-  fetchAssetObjectUrl,
   hasDirectusSession,
   loginToDirectus,
   logoutFromDirectus,
-  releaseCharacterCardImages,
 } from './services/directusClient.js'
 
 const pages = {
   characters: 'characters',
   detail: 'detail',
-  templates: 'templates',
-  worldBooks: 'worldBooks',
+  resources: 'resources',
 }
+
+const resourceTypes = [
+  { id: 'templates', label: 'templatesTab' },
+  { id: 'world-books', label: 'worldBooksTab' },
+  { id: 'presets', label: 'presetsTab' },
+  { id: 'tasks', label: 'tasksTab' },
+]
 
 const databaseTemplateLabels = {
   tab: 'templatesTab',
@@ -48,6 +54,33 @@ const worldBookLabels = {
   noPreview: 'noWorldBookPreview',
 }
 
+const presetLabels = {
+  pageTitle: 'presetsPageTitle',
+  count: 'presetCount',
+  loadingTitle: 'loadingPresetsTitle',
+  loadingMessage: 'loadingPresetsMessage',
+  emptyTitle: 'noPresetsTitle',
+  emptyMessage: 'noPresetsMessage',
+  file: 'presetFile',
+}
+
+const taskLabels = {
+  pageTitle: 'tasksPageTitle',
+  count: 'taskCount',
+  loadingTitle: 'loadingTasksTitle',
+  loadingMessage: 'loadingTasksMessage',
+  emptyTitle: 'noTasksTitle',
+  emptyMessage: 'noTasksMessage',
+  file: 'taskFile',
+}
+
+const resourceConfiguration = {
+  templates: { labels: databaseTemplateLabels, stateKey: 'templates' },
+  'world-books': { labels: worldBookLabels, stateKey: 'worldBooks' },
+  presets: { labels: presetLabels, stateKey: 'presets' },
+  tasks: { labels: taskLabels, stateKey: 'tasks' },
+}
+
 function App() {
   const { t } = useI18n()
   const [route, setRoute] = useState(getRouteFromLocation)
@@ -62,6 +95,8 @@ function App() {
   const [characters, setCharacters] = useState([])
   const [databaseTemplates, setDatabaseTemplates] = useState([])
   const [worldBooks, setWorldBooks] = useState([])
+  const [presets, setPresets] = useState([])
+  const [tasks, setTasks] = useState([])
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isCheckingSession, setIsCheckingSession] = useState(true)
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(false)
@@ -74,23 +109,23 @@ function App() {
 
     try {
       const characterCards = await fetchCharacterCards()
-      setCharacters((currentCharacters) => {
-        releaseCharacterCardImages(currentCharacters)
-        return characterCards
-      })
+      setCharacters(characterCards)
       setIsAuthenticated(true)
-      loadCharacterCoverImages(characterCards, setCharacters)
-      loadSecondaryCollections(setDatabaseTemplates, setWorldBooks)
+      await loadSecondaryCollections({
+        setDatabaseTemplates,
+        setWorldBooks,
+        setPresets,
+        setTasks,
+      })
       return true
     } catch (error) {
       setLoginError(error)
       setIsAuthenticated(false)
-      setCharacters((currentCharacters) => {
-        releaseCharacterCardImages(currentCharacters)
-        return []
-      })
+      setCharacters([])
       setDatabaseTemplates([])
       setWorldBooks([])
+      setPresets([])
+      setTasks([])
       return false
     } finally {
       setIsLoadingCharacters(false)
@@ -218,6 +253,17 @@ function App() {
     })
   }, [selectedWorldBookAuthorId, worldBooks])
 
+  const [selectedPresetAuthorId, setSelectedPresetAuthorId] = useState('')
+  const [selectedTaskAuthorId, setSelectedTaskAuthorId] = useState('')
+  const filteredPresets = useMemo(
+    () => filterResourcesByAuthor(presets, selectedPresetAuthorId),
+    [presets, selectedPresetAuthorId],
+  )
+  const filteredTasks = useMemo(
+    () => filterResourcesByAuthor(tasks, selectedTaskAuthorId),
+    [tasks, selectedTaskAuthorId],
+  )
+
   const templateAuthorOptions = useMemo(() => {
     const authorsById = new Map()
 
@@ -256,6 +302,15 @@ function App() {
     )
   }, [t, worldBooks])
 
+  const presetAuthorOptions = useMemo(
+    () => getResourceAuthorOptions(presets, t),
+    [presets, t],
+  )
+  const taskAuthorOptions = useMemo(
+    () => getResourceAuthorOptions(tasks, t),
+    [tasks, t],
+  )
+
   async function handleLogin(credentials) {
     setIsLoggingIn(true)
     setLoginError(null)
@@ -284,16 +339,17 @@ function App() {
   async function handleLogout() {
     await logoutFromDirectus()
     setIsAuthenticated(false)
-    setCharacters((currentCharacters) => {
-      releaseCharacterCardImages(currentCharacters)
-      return []
-    })
+    setCharacters([])
     setDatabaseTemplates([])
     setWorldBooks([])
+    setPresets([])
+    setTasks([])
     setSearchTerm('')
     setSelectedAuthorId('')
     setSelectedTemplateAuthorId('')
     setSelectedWorldBookAuthorId('')
+    setSelectedPresetAuthorId('')
+    setSelectedTaskAuthorId('')
     setSelectedTags({ include: [], exclude: [] })
     setIsOtpRequired(false)
     navigateToRoute({ page: pages.characters }, { replace: true })
@@ -317,12 +373,20 @@ function App() {
     navigateToRoute({ page: pages.characters })
   }
 
-  function handleShowTemplates() {
-    navigateToRoute({ page: pages.templates })
+  function handleShowResources(resourceType = route.resourceType ?? 'templates') {
+    navigateToRoute({ page: pages.resources, resourceType })
   }
 
-  function handleShowWorldBooks() {
-    navigateToRoute({ page: pages.worldBooks })
+  function handleResourceOpen(resourceType, resourceId) {
+    const clearAuthorFilter = {
+      templates: setSelectedTemplateAuthorId,
+      'world-books': setSelectedWorldBookAuthorId,
+      presets: setSelectedPresetAuthorId,
+      tasks: setSelectedTaskAuthorId,
+    }[resourceType]
+
+    clearAuthorFilter?.('')
+    navigateToRoute({ page: pages.resources, resourceType, resourceId: String(resourceId) })
   }
 
   function handleCharacterOpen(character) {
@@ -361,9 +425,12 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div>
-          <p className="product-name">{t('appName')}</p>
-          <h1>{getPageTitle(route, t)}</h1>
+        <div className="topbar-brand">
+          <img className="brand-mark" src="/logo.png" alt="" aria-hidden="true" />
+          <div>
+            <p className="product-name">{t('appName')}</p>
+            <h1>{getPageTitle(route, t)}</h1>
+          </div>
         </div>
         <div className="topbar-actions">
           <LanguageSwitcher />
@@ -388,19 +455,11 @@ function App() {
                 </button>
                 <button
                   type="button"
-                  aria-current={route.page === pages.templates ? 'page' : undefined}
-                  className={route.page === pages.templates ? 'is-active' : ''}
-                  onClick={handleShowTemplates}
+                  aria-current={route.page === pages.resources ? 'page' : undefined}
+                  className={route.page === pages.resources ? 'is-active' : ''}
+                  onClick={() => handleShowResources()}
                 >
-                  {t('templatesTab')}
-                </button>
-                <button
-                  type="button"
-                  aria-current={route.page === pages.worldBooks ? 'page' : undefined}
-                  className={route.page === pages.worldBooks ? 'is-active' : ''}
-                  onClick={handleShowWorldBooks}
-                >
-                  {t('worldBooksTab')}
+                  {t('resourcesTab')}
                 </button>
               </nav>
               {isAuthenticated ? (
@@ -433,26 +492,41 @@ function App() {
               onForkOpen={handleForkOpen}
               onTagFilter={handleTagShortcut}
               onVersionChange={handleVersionChange}
+              onResourceOpen={handleResourceOpen}
             />
-          ) : route.page === pages.templates ? (
-            <DatabaseTemplateListPage
-              items={filteredDatabaseTemplates}
+          ) : route.page === pages.resources ? (
+            <ResourceListPage
+              items={getActiveResources(route.resourceType, {
+                templates: filteredDatabaseTemplates,
+                worldBooks: filteredWorldBooks,
+                presets: filteredPresets,
+                tasks: filteredTasks,
+              })}
               isCheckingSession={isCheckingSession}
               isLoading={isLoadingCharacters}
-              authorOptions={templateAuthorOptions}
-              selectedAuthorId={selectedTemplateAuthorId}
-              onAuthorChange={setSelectedTemplateAuthorId}
-              labels={databaseTemplateLabels}
-            />
-          ) : route.page === pages.worldBooks ? (
-            <DatabaseTemplateListPage
-              items={filteredWorldBooks}
-              isCheckingSession={isCheckingSession}
-              isLoading={isLoadingCharacters}
-              authorOptions={worldBookAuthorOptions}
-              selectedAuthorId={selectedWorldBookAuthorId}
-              onAuthorChange={setSelectedWorldBookAuthorId}
-              labels={worldBookLabels}
+              authorOptions={getActiveResources(route.resourceType, {
+                templates: templateAuthorOptions,
+                worldBooks: worldBookAuthorOptions,
+                presets: presetAuthorOptions,
+                tasks: taskAuthorOptions,
+              })}
+              selectedAuthorId={getActiveResources(route.resourceType, {
+                templates: selectedTemplateAuthorId,
+                worldBooks: selectedWorldBookAuthorId,
+                presets: selectedPresetAuthorId,
+                tasks: selectedTaskAuthorId,
+              })}
+              selectedItemId={route.resourceId}
+              onAuthorChange={getActiveResources(route.resourceType, {
+                templates: setSelectedTemplateAuthorId,
+                worldBooks: setSelectedWorldBookAuthorId,
+                presets: setSelectedPresetAuthorId,
+                tasks: setSelectedTaskAuthorId,
+              })}
+              labels={resourceConfiguration[route.resourceType]?.labels ?? databaseTemplateLabels}
+              resourceTypes={resourceTypes}
+              activeType={route.resourceType ?? 'templates'}
+              onTypeChange={handleShowResources}
             />
           ) : (
             <CharacterListPage
@@ -497,12 +571,8 @@ function RouteStatusPanel({ title, message }) {
 }
 
 function getPageTitle(route, t) {
-  if (route.page === pages.templates) {
-    return t('templatesPageTitle')
-  }
-
-  if (route.page === pages.worldBooks) {
-    return t('worldBooksPageTitle')
+  if (route.page === pages.resources) {
+    return t(resourceConfiguration[route.resourceType]?.labels.pageTitle ?? 'resourcesPageTitle')
   }
 
   return t('pageTitle')
@@ -510,8 +580,7 @@ function getPageTitle(route, t) {
 
 function isListRoute(route) {
   return route.page === pages.characters ||
-    route.page === pages.templates ||
-    route.page === pages.worldBooks
+    route.page === pages.resources
 }
 
 function navigateToRoute(route, options = {}) {
@@ -528,11 +597,23 @@ function navigateToRoute(route, options = {}) {
 
 function getRouteFromLocation() {
   if (window.location.pathname === '/templates') {
-    return { page: pages.templates }
+    return { page: pages.resources, resourceType: 'templates' }
   }
 
   if (window.location.pathname === '/world-books') {
-    return { page: pages.worldBooks }
+    return { page: pages.resources, resourceType: 'world-books' }
+  }
+
+  const resourceMatch = window.location.pathname.match(
+    /^\/resources\/(templates|world-books|presets|tasks)(?:\/([^/]+))?\/?$/,
+  )
+
+  if (resourceMatch) {
+    return {
+      page: pages.resources,
+      resourceType: resourceMatch[1],
+      resourceId: resourceMatch[2] ?? null,
+    }
   }
 
   const match = window.location.pathname.match(
@@ -551,12 +632,13 @@ function getRouteFromLocation() {
 }
 
 function getPathFromRoute(route) {
-  if (route.page === pages.templates) {
-    return '/templates'
-  }
-
-  if (route.page === pages.worldBooks) {
-    return '/world-books'
+  if (route.page === pages.resources) {
+    const resourceType = resourceConfiguration[route.resourceType]
+      ? route.resourceType
+      : 'templates'
+    return route.resourceId
+      ? `/resources/${resourceType}/${route.resourceId}`
+      : `/resources/${resourceType}`
   }
 
   if (route.page === pages.detail && route.characterId) {
@@ -583,10 +665,17 @@ function isInvalidOtpError(error) {
   )
 }
 
-async function loadSecondaryCollections(setDatabaseTemplates, setWorldBooks) {
-  const [templatesResult, worldBooksResult] = await Promise.allSettled([
+async function loadSecondaryCollections({
+  setDatabaseTemplates,
+  setWorldBooks,
+  setPresets,
+  setTasks,
+}) {
+  const [templatesResult, worldBooksResult, presetsResult, tasksResult] = await Promise.allSettled([
     fetchDatabaseTemplates(),
     fetchWorldBooks(),
+    fetchPresets(),
+    fetchTasks(),
   ])
 
   if (templatesResult.status === 'fulfilled') {
@@ -596,37 +685,41 @@ async function loadSecondaryCollections(setDatabaseTemplates, setWorldBooks) {
   if (worldBooksResult.status === 'fulfilled') {
     setWorldBooks(worldBooksResult.value)
   }
+
+  if (presetsResult.status === 'fulfilled') {
+    setPresets(presetsResult.value)
+  }
+
+  if (tasksResult.status === 'fulfilled') {
+    setTasks(tasksResult.value)
+  }
 }
 
-function loadCharacterCoverImages(characterCards, setCharacters) {
-  characterCards.forEach((character) => {
-    if (!character.imageAssetId) {
-      return
-    }
+function filterResourcesByAuthor(resources, authorId) {
+  return resources.filter((resource) =>
+    !authorId || String(resource.authorId) === authorId,
+  )
+}
 
-    fetchAssetObjectUrl(character.imageAssetId)
-      .then((imageUrl) => {
-        setCharacters((currentCharacters) =>
-          currentCharacters.map((currentCharacter) => {
-            if (currentCharacter.id !== character.id) {
-              return currentCharacter
-            }
+function getResourceAuthorOptions(resources, t) {
+  const authorsById = new Map()
 
-            return {
-              ...currentCharacter,
-              imageUrl,
-              versions: currentCharacter.versions.map((version, index) => ({
-                ...version,
-                imageUrl: index === 0 ? imageUrl : version.imageUrl,
-              })),
-            }
-          }),
-        )
-      })
-      .catch(() => {
-        // Keep the existing placeholder if a cover cannot be fetched.
-      })
+  resources.forEach((resource) => {
+    if (!resource.authorId) return
+    authorsById.set(String(resource.authorId), {
+      id: String(resource.authorId),
+      name: resource.author ?? t('authorById', { id: resource.authorId }),
+    })
   })
+
+  return [...authorsById.values()].sort((first, second) =>
+    first.name.localeCompare(second.name),
+  )
+}
+
+function getActiveResources(resourceType, resources) {
+  const key = resourceConfiguration[resourceType]?.stateKey ?? 'templates'
+  return resources[key]
 }
 
 export default App

@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { useI18n } from '../i18n/i18nContext.js'
+import { fetchAssetObjectUrl } from '../services/directusClient.js'
 
 export function CharacterCard({
   character,
@@ -8,11 +10,34 @@ export function CharacterCard({
   onTagFilter,
 }) {
   const { t } = useI18n()
+  const [previewUrl, setPreviewUrl] = useState(null)
   const author =
     character.author ??
     (character.authorId
       ? t('authorById', { id: character.authorId })
       : t('unknownAuthor'))
+
+  useEffect(() => {
+    let isMounted = true
+    let objectUrl = null
+
+    if (character.imageAssetId) {
+      fetchAssetObjectUrl(character.imageAssetId)
+        .then((url) => {
+          objectUrl = url
+          if (isMounted) setPreviewUrl(url)
+          else URL.revokeObjectURL(url)
+        })
+        .catch(() => {
+          if (isMounted) setPreviewUrl(null)
+        })
+    }
+
+    return () => {
+      isMounted = false
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [character.imageAssetId])
 
   return (
     <article className="character-card">
@@ -24,10 +49,10 @@ export function CharacterCard({
           onOpen(character)
         }}
       >
-      {character.imageUrl ? (
+      {previewUrl ? (
         <img
           className="character-image"
-          src={character.imageUrl}
+          src={previewUrl}
           alt={t('portraitAlt', { name: character.name })}
           loading="lazy"
         />
