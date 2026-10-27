@@ -160,7 +160,12 @@ function App() {
           return
         }
 
-        loadAppData()
+        await loadAppData()
+      } catch (error) {
+        if (isMounted) {
+          setLoginError(error)
+          setIsAuthenticated(false)
+        }
       } finally {
         if (isMounted) {
           setIsCheckingSession(false)
@@ -168,7 +173,7 @@ function App() {
       }
     }
 
-    checkSession()
+    void checkSession()
 
     return () => {
       isMounted = false

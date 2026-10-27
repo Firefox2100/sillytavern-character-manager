@@ -7,7 +7,7 @@ services:
     depends_on:
       - directus
     ports:
-      - "8769:80"
+      - "8769:8080"
 
   directus:
     image: directus/directus:12.5.1

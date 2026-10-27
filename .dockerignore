@@ -6,6 +6,10 @@
 data
 dist
 node_modules
+coverage
+**/coverage
+**/dist
+**/node_modules
 *.log
 *.local
 npm-debug.log*

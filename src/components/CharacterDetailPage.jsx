@@ -107,7 +107,7 @@ export function CharacterDetailPage({
       }
     }
 
-    loadVersionCardData()
+    void loadVersionCardData()
 
     return () => {
       isMounted = false

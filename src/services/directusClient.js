@@ -339,8 +339,9 @@ async function fetchAsset(assetId, fileName, transformation = {}) {
 
 export async function createSignedFileLink(
   assetId,
-  options = { ttlSeconds: 300, download: true },
+  options,
 ) {
+  const { ttlSeconds = 300, download = true } = options ?? {}
   const token = await directusClient.getToken()
   const response = await fetch(`${DIRECTUS_URL}/signed-files/${assetId}/sign`, {
     method: 'POST',
@@ -350,8 +351,8 @@ export async function createSignedFileLink(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({
-      ttl_seconds: options.ttlSeconds,
-      download: options.download,
+      ttl_seconds: ttlSeconds,
+      download,
     }),
   })
 

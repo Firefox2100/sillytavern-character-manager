@@ -31,7 +31,7 @@ jobs:
           cache: npm
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Lint frontend
         run: npm run lint
@@ -39,12 +39,15 @@ jobs:
       - name: Test frontend with coverage
         run: npm run test:coverage
 
+      - name: Verify coverage report
+        run: test -s coverage/lcov.info
+
       - name: Build frontend
         run: npm run build
 
       - name: Install Directus extension dependencies
         working-directory: extensions/directus-extension-signed-files
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build Directus extension
         working-directory: extensions/directus-extension-signed-files
